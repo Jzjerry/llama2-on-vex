@@ -797,7 +797,7 @@ void generate(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler, 
     // report achieved tok/s (pos-1 because the timer starts after first iteration)
     if (pos > 1) {
         long end = time_in_ms();
-        printf("achieved tok/tik: %d\n", (pos-1) / (end-start));
+        printf("achieved tok/tik: %d for %d\n", (pos-1), (end-start));
     }
 
     free(prompt_tokens);
@@ -808,7 +808,7 @@ int main() {
     // default parameters
     float temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
     float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
-    int steps = 1;            // number of steps to run for
+    int steps = 2;            // number of steps to run for
     char *prompt = NULL;        // prompt string
     unsigned long long rng_seed = 0; // seed rng with time by default
 

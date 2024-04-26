@@ -198,20 +198,19 @@ unsigned long long __divdi3 (unsigned long long numerator,unsigned  long long di
     return result;
 }
 
-// int __fixsfsi(float a){
-//     return (int)a;
-// }
 
-// # define ISNAN(x) (						\
-//   {								\
-//     union u { float f; unsigned int i; } *t = (union u *)&(x);	\
-//     ((t->i & 0x7f800000) == 0x7f800000) &&			\
-//     ((t->i & 0x7fffff) != 0);					\
-//   })
-// int __unordsf2 ( float a, float b)
-// {
-//   return ISNAN(a) || ISNAN(b);
-// }
+// code snippet from Apple Open Source 
+// https://opensource.apple.com/source/gcc_os/gcc_os-1671/gcc/config/ns32k/__unordsf2.c.auto.html
+# define ISNAN(x) (						\
+  {								\
+    union u { float f; unsigned int i; } *t = (union u *)&(x);	\
+    ((t->i & 0x7f800000) == 0x7f800000) &&			\
+    ((t->i & 0x7fffff) != 0);					\
+  })
+int __unordsf2 ( float a, float b)
+{
+  return ISNAN(a) || ISNAN(b);
+}
 
 
 int strlen(const char *s){

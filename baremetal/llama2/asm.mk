@@ -48,8 +48,8 @@ CFLAGS += -I${STANDALONE}/include
 CFLAGS += -I${STANDALONE}/driver
 LDFLAGS += -L${STANDALONE}/common
 LDFLAGS +=  -nostdlib -lgcc -nostartfiles -ffreestanding -Wl,-Bstatic,-T,$(LDSCRIPT),-Map,$(OBJDIR)/$(PROJ_NAME).map,--print-memory-usage
-LDFLAGS += -lc -lm -lgcc
-# LDFLAGS += -L RVfplib/build/lib -lrvfp
+LDFLAGS += -L RVfplib/build/lib -nolibc -lc -lm -lrvfp
+# LDFLAGS += -lgcc
 DOT:= .
 COLON:=:
 
