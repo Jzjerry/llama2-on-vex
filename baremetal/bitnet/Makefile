@@ -5,9 +5,13 @@ BENCH=yes
 STANDALONE = ..
 MARCH = rv32imc
 
+USE_SIMD?=8
+BITNET_QUANT?=2
+
 CFLAGS += -fno-common -fno-inline
 CFLAGS += -Wno-implicit-int -Wno-implicit-function-declaration
 CFLAGS += -DTIME -DCORE_HZ=12000000ll
+CFLAGS += -DUSE_SIMD=$(USE_SIMD) -DBITNET_QUANT=$(BITNET_QUANT)
 CFLAGS += -I./
 
 SRCS = 	$(wildcard *.c) \
@@ -15,7 +19,7 @@ SRCS = 	$(wildcard *.c) \
         ${STANDALONE}/common/start.S
 
 
-BIN_OBJS = $(wildcard bin/*.o)
+BIN_OBJS = bin/model.o
 
 all: bin/model.o
 

@@ -21,11 +21,13 @@ Config config;
 BitNetWeight* bitnet_weight;
 
 // Model File
-extern char _binary_bin_model_bin_start;
+extern char _binary_bin_model_bin_start[];
+extern int32_t __bitnetadd4(uint32_t a, uint8_t w);
+extern int32_t __bitnetadd8(uint32_t a1, uint32_t a2, uint16_t w);
 
 void read_checkpoint() {
 
-    char* ptr = &_binary_bin_model_bin_start; 
+    char* ptr = (char*)_binary_bin_model_bin_start; 
     if (ptr == NULL) { printf("[Error] Couldn't open file\n"); exit(EXIT_FAILURE); }
 
     uint32_t magic_number;
@@ -52,8 +54,15 @@ void read_checkpoint() {
         memcpy(&bitnet_weight[i].s, (float*)ptr, sizeof(float));
         ptr += sizeof(float);
         
-        if ((config.layer_n[i] * config.layer_m[i]) % 4 != 0) { exit(EXIT_FAILURE); }
-        size_t weight_size = config.layer_n[i] * config.layer_m[i] / 4;
+        if ((config.layer_n[i] * config.layer_m[i]) % 4 != 0) {
+            printf("%d x %d = %d", config.layer_n[i], config.layer_m[i], config.layer_n[i] * config.layer_m[i]);
+            exit(EXIT_FAILURE); 
+        }
+        #if BITNET_QUANT == 2
+        size_t weight_size = (config.layer_n[i] * config.layer_m[i]) >> 3;
+        #else
+        size_t weight_size = (config.layer_n[i] * config.layer_m[i]) >> 2;
+        #endif
 
         bitnet_weight[i].q_4 = (uint8_t*)ptr;
         ptr += weight_size;
@@ -69,7 +78,51 @@ size_t find_largest_act_size(Config* config) {
     return largest_act_size;
 }
 
+#if BITNET_QUANT == 2
+#if USE_SIMD == 4
+void test(){
+    int8_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    uint8_t w = 0b00001000;
+    int32_t c = __bitnetadd4(*(uint32_t*)a, w>>4) + __bitnetadd4(*(uint32_t*)(a + 4), w);
+    int32_t c_ref = addsub4x1b(a, w>>4) + addsub4x1b(a + 4, w);
+    printf("BitNet Add: %d\n", c);
+    printf("BitNet Add Ref: %d\n", c_ref);
+}
+#elif USE_SIMD == 8
+void test(){
+    int8_t a[] = {1,2,3,4,5,6,7,8};
+    uint8_t w = 0b00001000;
+    int32_t c = __bitnetadd8(*(uint32_t*)(&a[0]), *(uint32_t*)(&a[4]), w);
+    int32_t c_ref = addsub8x1b(a, w);
+    printf("BitNet Add: %d\n", c);
+    printf("BitNet Add Ref: %d\n", c_ref);
+}
+#endif
+#else
+#if USE_SIMD == 4
+void test(){
+    int8_t a[] = {1, 2, 3, 4};
+    uint8_t w = 0b11010101;
+    int32_t c = __bitnetadd4(*(uint32_t*)a, w);
+    int32_t c_ref = addsub4(a, w);
+    printf("BitNet Add: %d\n", c);
+    printf("BitNet Add Ref: %d\n", c_ref);
+}
+#elif USE_SIMD == 8
+void test(){
+    int8_t a[] = {1,2,3,4,5,6,7,8};
+    uint8_t w[] = {0b11010101, 0b01010101};
+    int32_t c = __bitnetadd8(*(uint32_t*)(&a[0]), *(uint32_t*)(&a[4]), *(uint16_t*)w);
+    int32_t c_ref = addsub8(a, w);
+    printf("BitNet Add: %d\n", c);
+    printf("BitNet Add Ref: %d\n", c_ref);
+}
+#endif
+#endif
+
 int main() {
+    // test();
+    // exit(0);
     printf("Reading checkpoint...\n");
     read_checkpoint();
     for(int i = 0; i < config.n_layer; i++) {
@@ -77,36 +130,40 @@ int main() {
     }
 
     size_t largest_act_size = find_largest_act_size(&config);
-    float *input = (float*)malloc(largest_act_size * sizeof(float));
-    float *output = (float*)malloc(largest_act_size * sizeof(float));
-    float *temp;
-    for (int i=0; i < 256; i++){
-    	input[i] = 1.0;
-    }   
-    input[0] = 1.5;
-
     int n_layer = config.n_layer;
     int result = -1;
+    long total_time = 0;
 
-    long start = time();
+    for (int t = 0; t < 5; t++){
 
-    for(int i = 0; i < n_layer; i++){
-        int n = config.layer_n[i];
-        int d = config.layer_m[i];
-        forward(input, output, bitnet_weight[i].q_4, bitnet_weight[i].s, n, d);
-        if (i < n_layer - 1) {ReLU(output, d);}
-        else {
-            result = argmax(output, d);
+        float *input = (float*)malloc(largest_act_size * sizeof(float));
+        float *output = (float*)malloc(largest_act_size * sizeof(float));
+        float *temp;
+
+        for (int i=0; i < 256; i++){
+    	    input[i] = 1.0;
+        } 
+        input[0] = 1.5;
+
+        long start = time();
+        for(int i = 0; i < n_layer; i++){
+            int n = config.layer_n[i];
+            int d = config.layer_m[i];
+            forward(input, output, bitnet_weight[i].q_4, bitnet_weight[i].s, n, d);
+            if (i < n_layer - 1) {ReLU(output, d);}
+            else {
+                result = argmax(output, d);
+            }
+            temp = input;
+            input = output;
+            output = temp;
         }
-        temp = input;
-        input = output;
-        output = temp;
+        total_time += time() - start;
+        printf("Loop %d Result: %d\n", t, result);
+        free(input);
+        free(output);
     }
-    long end = time() - start;
-    free(input);
-    free(output);
-    printf("Result: %d\n", result);
-    printf("Total Time: %d\n", end);
+    printf("Total Time: %d\n", total_time);
 
     // Profiler Output
     printf("RMSNorm Time: %d\n", rmsnorm_time);

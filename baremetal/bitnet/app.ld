@@ -112,6 +112,7 @@ SECTIONS
     *(.rdata)
     *(.rodata .rodata.*)
     *(.gnu.linkonce.r.*)
+    . = ALIGN(4);
     *(.data .data.*)
     *(.gnu.linkonce.d.*)
     . = ALIGN(8);
