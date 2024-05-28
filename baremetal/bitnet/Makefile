@@ -5,7 +5,7 @@ BENCH=yes
 STANDALONE = ..
 MARCH = rv32imc
 
-USE_SIMD?=8
+USE_SIMD?=16
 BITNET_QUANT?=2
 
 CFLAGS += -fno-common -fno-inline

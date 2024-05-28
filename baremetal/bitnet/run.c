@@ -6,7 +6,6 @@
 #include "sim_stdlib.h"
 #include "bitnet.h"
 
-
 typedef struct {
     int n_layer;
     int *layer_n, *layer_m;
@@ -22,8 +21,6 @@ BitNetWeight* bitnet_weight;
 
 // Model File
 extern char _binary_bin_model_bin_start[];
-extern int32_t __bitnetadd4(uint32_t a, uint8_t w);
-extern int32_t __bitnetadd8(uint32_t a1, uint32_t a2, uint16_t w);
 
 void read_checkpoint() {
 
@@ -78,51 +75,10 @@ size_t find_largest_act_size(Config* config) {
     return largest_act_size;
 }
 
-#if BITNET_QUANT == 2
-#if USE_SIMD == 4
-void test(){
-    int8_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
-    uint8_t w = 0b00001000;
-    int32_t c = __bitnetadd4(*(uint32_t*)a, w>>4) + __bitnetadd4(*(uint32_t*)(a + 4), w);
-    int32_t c_ref = addsub4x1b(a, w>>4) + addsub4x1b(a + 4, w);
-    printf("BitNet Add: %d\n", c);
-    printf("BitNet Add Ref: %d\n", c_ref);
-}
-#elif USE_SIMD == 8
-void test(){
-    int8_t a[] = {1,2,3,4,5,6,7,8};
-    uint8_t w = 0b00001000;
-    int32_t c = __bitnetadd8(*(uint32_t*)(&a[0]), *(uint32_t*)(&a[4]), w);
-    int32_t c_ref = addsub8x1b(a, w);
-    printf("BitNet Add: %d\n", c);
-    printf("BitNet Add Ref: %d\n", c_ref);
-}
-#endif
-#else
-#if USE_SIMD == 4
-void test(){
-    int8_t a[] = {1, 2, 3, 4};
-    uint8_t w = 0b11010101;
-    int32_t c = __bitnetadd4(*(uint32_t*)a, w);
-    int32_t c_ref = addsub4(a, w);
-    printf("BitNet Add: %d\n", c);
-    printf("BitNet Add Ref: %d\n", c_ref);
-}
-#elif USE_SIMD == 8
-void test(){
-    int8_t a[] = {1,2,3,4,5,6,7,8};
-    uint8_t w[] = {0b11010101, 0b01010101};
-    int32_t c = __bitnetadd8(*(uint32_t*)(&a[0]), *(uint32_t*)(&a[4]), *(uint16_t*)w);
-    int32_t c_ref = addsub8(a, w);
-    printf("BitNet Add: %d\n", c);
-    printf("BitNet Add Ref: %d\n", c_ref);
-}
-#endif
-#endif
-
 int main() {
-    // test();
+    test();
     // exit(0);
+
     printf("Reading checkpoint...\n");
     read_checkpoint();
     for(int i = 0; i < config.n_layer; i++) {
@@ -149,6 +105,7 @@ int main() {
         for(int i = 0; i < n_layer; i++){
             int n = config.layer_n[i];
             int d = config.layer_m[i];
+            printf("Processing Layer %d...\n", i);
             forward(input, output, bitnet_weight[i].q_4, bitnet_weight[i].s, n, d);
             if (i < n_layer - 1) {ReLU(output, d);}
             else {
@@ -164,7 +121,6 @@ int main() {
         free(output);
     }
     printf("Total Time: %d\n", total_time);
-
     // Profiler Output
     printf("RMSNorm Time: %d\n", rmsnorm_time);
     printf("ActQuantize Time: %d\n", act_quantize_time);
