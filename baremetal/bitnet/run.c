@@ -76,7 +76,7 @@ size_t find_largest_act_size(Config* config) {
 }
 
 int main() {
-    test();
+    // test();
     // exit(0);
 
     printf("Reading checkpoint...\n");
