@@ -14,13 +14,15 @@ typedef uint16_t int1x16_t;
 typedef uint32_t int1x32_t;
 
 // Custom Instruction Calls
-extern int32_t __bitnetadd4(int8x4_t a, int2x4_t w);
-extern int32_t __bitnetadd8(int8x4_t a1, int8x4_t a2, int2x8_t w);
 #if BITNET_QUANT == 2
+extern int32_t __bitnetadd4(int8x4_t a, int1x8_t w);
+extern int32_t __bitnetadd8(int8x4_t a1, int8x4_t a2, int1x8_t w);
 extern int32_t __bitnetadd16(int8_t *a, int1x16_t w);
 extern int32_t __bitnetadd32(int8_t *a, int1x32_t w, int1x32_t dummy);
 extern int32_t __bitnetadd64(int8_t *a, int1x32_t w1, int1x32_t w2);
 #else
+extern int32_t __bitnetadd4(int8x4_t a, int2x4_t w);
+extern int32_t __bitnetadd8(int8x4_t a1, int8x4_t a2, int2x8_t w);
 extern int32_t __bitnetadd16(int8_t *a, int2x16_t w);
 extern int32_t __bitnetadd32(int8_t *a, int2x16_t w1, int2x16_t w2);
 #endif
@@ -67,7 +69,9 @@ int32_t addsub8x1b(int8_t* a, int1x8_t w){
 
 int32_t addsub16(int8_t* a, int2x4_t *w){
     int32_t sum = 0;
-    // TODO: Implement 16-bit Quantization
+    for(int i=0; i<2; i++){
+        sum += addsub8(a + (i << 3), w + i*2);
+    }
     return sum;
 }
 
@@ -75,6 +79,14 @@ int32_t addsub16x1b(int8_t* a, int1x8_t* w){
     int32_t sum = 0;
     for(int i = 0; i < 2; i++){
         sum += addsub8x1b(a + (i << 3), w[i]);
+    }
+    return sum;
+}
+
+int32_t addsub32(int8_t* a, int2x4_t *w){
+    int32_t sum = 0;
+    for(int i=0; i<4; i++){
+        sum += addsub8(a + (i << 3), w + i*2);
     }
     return sum;
 }
@@ -94,6 +106,7 @@ int32_t addsub64x1b(int8_t* a, int1x8_t* w){
     }
     return sum;
 }
+
 // BitNet Test
 #if BITNET_QUANT == 2
 #if USE_SIMD == 4
@@ -184,6 +197,22 @@ void test(){
 void test(){
     int8_t a[] = {1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8};
     uint8_t w[] = {0b11010101, 0b01010101, 0b11010101, 0b01010101};
+    int32_t c = __bitnetadd16(a, *(uint32_t*)w);
+    int32_t c_ref = addsub16(a, w);
+    printf("BitNet Add: %d\n", c);
+    printf("BitNet Add Ref: %d\n", c_ref);
+}
+#elif USE_SIMD == 32
+void test(){
+    int8_t a[] = {
+        1,2,3,4,5,6,7,8,
+        1,2,3,4,5,6,7,8,
+        9,2,1,3,4,5,6,7,
+        8,3,4,6,1,2,3,5 };
+    uint8_t w[] = {0b11010101, 0b01010101, 0b11010101, 0b01010101,
+        0b01010101, 0b01010101, 0b01010101, 0b11010101};
+    int32_t c = __bitnetadd32(a, *(uint32_t*)w, *(uint32_t*)(w+4));
+    int32_t c_ref = addsub32(a, w);
     printf("BitNet Add: %d\n", c);
     printf("BitNet Add Ref: %d\n", c_ref);
 }
